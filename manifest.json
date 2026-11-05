@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "kamradsmeshnyavy.network",
+  "name": "DOT-MATRIX Wi-Fi",
+  "version": "1.0.0",
+  "author": "KamradSmeshnyavy",
+  "license": "MIT",
+  "description": "Wi-Fi / network panel: networks, signal and connection details — the stock Omarchy bar widget in the DOT-MATRIX style",
+  "homepage": "https://github.com/KamradSmeshnyavy/omarchy-dotmatrix-network",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "DOT-MATRIX Wi-Fi",
+    "description": "Omarchy network panel in the DOT-MATRIX style",
+    "category": "Network",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.network"
+  }
+}

@@ -1,0 +1,9 @@
+Third-party attributions for kamradsmeshnyavy.network:
+
+- Base panel implementation (`omarchy.network`):
+  Copyright (c) David Heinemeier Hansson / Basecamp (Omarchy, https://github.com/basecamp/omarchy)
+  Licensed under the MIT License.
+
+- DOT-MATRIX style (`dotmatrix/Palette.qml`), inspired by Nihil-Shell (https://github.com/poligle/Nihil-Shell)
+  Copyright (c) 2026 Pol Iglesias
+  Licensed under the MIT License.
