@@ -29,6 +29,7 @@ Panel {
     passwordSsid = ""
     passwordText = ""
     identityText = ""
+    domainText = ""
   }
 
   // Live connection details from `ip` / /sys / iw.
@@ -100,6 +101,7 @@ Panel {
   property string passwordSsid: ""
   property string passwordText: ""
   property string identityText: ""
+  property string domainText: ""  // dotmatrix: RADIUS server domain for 802.1X
 
   // ConnectionFailReason values as a plain object, so Model.js helpers stay
   // pure JS and Node-testable.
@@ -691,6 +693,7 @@ Panel {
     if (passwordSsid !== ssid) {
       passwordText = ""
       identityText = ""
+      domainText = ""
     }
     passwordSsid = ssid
   }
@@ -767,10 +770,11 @@ Panel {
     runNetworkAction("connect", networkForSsid(ssid), function(network) { network.connectWithPsk(passphrase) })
   }
 
-  function connectEnterprise(ssid, identity, passphrase) {
+  function connectEnterprise(ssid, identity, domain, passphrase) {
+    if (!Model.isValidServerDomain(domain)) return
     runNetworkAction("connect", networkForSsid(ssid), function(network) {
       enterpriseConnect.secret = passphrase
-      enterpriseConnect.command = ["bash", "-c", Model.enterpriseConnectScript, "nmcli-eap", ssid, identity]
+      enterpriseConnect.command = ["bash", "-c", Model.enterpriseConnectScript, "nmcli-eap", ssid, identity, domain.trim()]
       enterpriseConnect.running = true
     })
   }
@@ -1640,7 +1644,8 @@ Panel {
     function submitCredentials() {
       if (!net || root.busy || root.passwordText.length === 0) return
       if (!isEnterprise) return root.connectWithPassphrase(net.ssid, root.passwordText)
-      if (root.identityText.length > 0) root.connectEnterprise(net.ssid, root.identityText, root.passwordText)
+      if (root.identityText.length > 0 && Model.isValidServerDomain(root.domainText))
+        root.connectEnterprise(net.ssid, root.identityText, root.domainText, root.passwordText)
     }
 
     Connections {
@@ -1853,7 +1858,9 @@ Panel {
       anchors.leftMargin: Style.space(10)
       anchors.rightMargin: Style.space(10)
       anchors.topMargin: Style.space(4)
-      implicitHeight: (idField.visible ? idField.implicitHeight + Style.space(4) : 0) + pwField.implicitHeight + Style.spacing.rowGap
+      implicitHeight: (idField.visible ? idField.implicitHeight + Style.space(4) : 0)
+        + (domainField.visible ? domainField.implicitHeight + Style.space(4) : 0)
+        + pwField.implicitHeight + Style.spacing.rowGap
       height: implicitHeight
 
       TextField {
@@ -1872,12 +1879,37 @@ Panel {
         enabled: !row.isBusy
         text: row.isPasswordOpen ? root.identityText : ""
 
-        onAccepted: pwField.forceActiveFocus()
+        onAccepted: domainField.forceActiveFocus()
         onTextChanged: if (row.isPasswordOpen && text !== root.identityText) root.identityText = text
         Keys.onEscapePressed: root.cancelPasswordPrompt()
 
         onVisibleChanged: if (visible) Qt.callLater(forceActiveFocus)
         Component.onCompleted: if (visible) Qt.callLater(forceActiveFocus)
+      }
+
+      // dotmatrix: the RADIUS server's domain. The profile trusts only a
+      // server whose system-CA-signed certificate matches it, so an impostor
+      // access point with the same SSID can't collect the credentials.
+      TextField {
+        id: domainField
+        visible: idField.visible
+        anchors.left: parent.left
+        anchors.right: connectPwBtn.left
+        anchors.top: idField.bottom
+        anchors.topMargin: Style.space(4)
+        anchors.rightMargin: Style.space(6)
+        placeholderText: "Server domain (radius.example.org)"
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        foreground: DotMatrix.Palette.fg
+        horizontalPadding: Style.spacing.controlGap
+        verticalPadding: Style.spacing.controlPaddingY
+        enabled: !row.isBusy
+        text: row.isPasswordOpen ? root.domainText : ""
+
+        onAccepted: pwField.forceActiveFocus()
+        onTextChanged: if (row.isPasswordOpen && text !== root.domainText) root.domainText = text
+        Keys.onEscapePressed: root.cancelPasswordPrompt()
       }
 
       TextField {
@@ -1937,7 +1969,8 @@ Panel {
         visible: !row.isBusy && !row.isFailed
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        enabled: row.net && pwField.text.length > 0 && (!row.isEnterprise || idField.text.length > 0)
+        enabled: row.net && pwField.text.length > 0
+          && (!row.isEnterprise || (idField.text.length > 0 && Model.isValidServerDomain(domainField.text)))
         iconText: "󰄬"
         tooltipText: "Connect"
         foreground: DotMatrix.Palette.fg

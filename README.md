@@ -40,6 +40,15 @@ omarchy restart shell
 
 Put the stock `omarchy.network` widget back into the bar from the bar settings if you removed it.
 
+## Enterprise (802.1X) networks
+
+Joining a new WPA-Enterprise network asks for the identity, the **server domain** (e.g. `radius.example.org`,
+ask your IT department) and the password. The profile is created as PEAP/MSCHAPv2 and trusts only a server whose
+certificate is signed by a system CA and matches that domain, so an impostor access point with the same name
+can't collect your credentials. The password goes to NetworkManager over stdin, never on a command line. Networks
+that need a custom CA certificate are set up once in `nm-connection-editor`; after that the panel connects to them as
+known networks.
+
 ## Settings
 
 The palette is shared by every DOT-MATRIX plugin: `~/.config/omarchy/dotmatrix.json`

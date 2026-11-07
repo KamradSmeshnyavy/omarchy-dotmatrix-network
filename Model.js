@@ -312,18 +312,33 @@ function canForgetNetwork(network) {
   return !!(network && network.known && !network.connected)
 }
 
+// 802.1X profile for a network that has none yet. The server is verified:
+// system CA bundle plus the RADIUS server's domain ($3, required), so an
+// impostor access point with the same SSID can't collect the inner
+// MSCHAPv2 exchange. No domain -> no profile.
+// dotmatrix: server verification (system-ca-certs + domain-suffix-match).
 // The password arrives on stdin and reaches nmcli through the scriptable
 // `connection edit` editor -- argv is world-readable in /proc, so the secret
 // must never be an argument (printf is a bash builtin, so no process spawns
 // with it either).
 var enterpriseConnectScript =
-  "u=$(uuidgen); IFS= read -r pw;" +
+  "[[ -n $3 ]] || exit 1; u=$(uuidgen); IFS= read -r pw;" +
   " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
   " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
-  " 802-1x.identity \"$2\" 802-1x.auth-timeout 8 >/dev/null" +
+  " 802-1x.identity \"$2\" 802-1x.system-ca-certs yes 802-1x.domain-suffix-match \"$3\"" +
+  " 802-1x.auth-timeout 8 >/dev/null" +
   " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
   " && nmcli connection up uuid \"$u\"" +
   " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"
+
+// Server domain for domain-suffix-match: a plain hostname such as
+// radius.example.org. nmcli reads ';' as a list separator, so anything
+// beyond hostname characters is rejected rather than passed through.
+function isValidServerDomain(domain) {
+  var d = String(domain || "").trim()
+  return d.length > 0 && d.length <= 253 &&
+    /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(d)
+}
 
 function networkFailureReason(reason, needsCredentials, reasons) {
   var r = reasons || {}
@@ -374,6 +389,7 @@ if (typeof module !== "undefined") {
     requiresCredentials: requiresCredentials,
     canForgetNetwork: canForgetNetwork,
     enterpriseConnectScript: enterpriseConnectScript,
+    isValidServerDomain: isValidServerDomain,
     networkFailureReason: networkFailureReason,
     shouldRepromptPassphrase: shouldRepromptPassphrase
   }
