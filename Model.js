@@ -320,16 +320,26 @@ function canForgetNetwork(network) {
 // The password arrives on stdin and reaches nmcli through the scriptable
 // `connection edit` editor -- argv is world-readable in /proc, so the secret
 // must never be an argument (printf is a bash builtin, so no process spawns
-// with it either).
+// with it either). The editor also appends every command it reads, the
+// `set 802-1x.password` line included, to $XDG_CACHE_HOME/nmcli-history
+// (0644 under umask 022), so it runs with XDG_CACHE_HOME=/dev/null: the
+// history path becomes /dev/null/nmcli-history, which can never be created,
+// and nmcli silently skips the write. The password still lands only in the
+// root-owned NetworkManager profile.
+// dotmatrix: no nmcli history for the password (enterpriseSecretNoHistory).
 var enterpriseConnectScript =
   "[[ -n $3 ]] || exit 1; u=$(uuidgen); IFS= read -r pw;" +
   " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
   " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
   " 802-1x.identity \"$2\" 802-1x.system-ca-certs yes 802-1x.domain-suffix-match \"$3\"" +
   " 802-1x.auth-timeout 8 >/dev/null" +
-  " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
+  " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | XDG_CACHE_HOME=/dev/null nmcli connection edit uuid \"$u\" >/dev/null 2>&1" +
   " && nmcli connection up uuid \"$u\"" +
   " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"
+
+// Marker for callers outside this plugin (the desktop widgets' Wi-Fi
+// section): the script above keeps the password out of nmcli's history.
+var enterpriseSecretNoHistory = true
 
 // Server domain for domain-suffix-match: a plain hostname such as
 // radius.example.org. nmcli reads ';' as a list separator, so anything
